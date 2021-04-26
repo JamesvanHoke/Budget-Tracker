@@ -8,8 +8,8 @@ const FILES_TO_CACHE = [
   "./index.js",
   "./icons/icon-192x192.png",
   "./icons/icon-512x512.png",
-  "./manifest.json"
-]
+  "./manifest.json",
+];
 
 const CACHE_NAME = "static-cache-v2";
 const DATA_CACHE_NAME = "data-cache-v1";
@@ -46,42 +46,28 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-
+// On fetch requests stores the response to our cache and will respond with the cached version if we have it on failed requests
 self.addEventListener("fetch", (e) => {
-  if (
-    e.request.method !== "GET" ||
-    !e.request.url.startsWith(self.location.origin)
-  ) {
-    e.respondWith(fetch(e.request));
-    return;
-  }
-
-  if (e.request.url.includes("/api/images")) {
+  if (e.request.url.includes("/api/")) {
     e.respondWith(
       caches.open(DATA_CACHE_NAME).then((cache) => {
         return fetch(e.request)
           .then((response) => {
-            cache.put(e.request, response.clone());
+            if (response.status === 200) {
+              cache.put(e.request.url, response.clone());
+            }
             return response;
           })
-          .catch(() => caches.match(e.request));
+          .catch((err) => caches.match(e.request));
       })
     );
     return;
   }
 
   e.respondWith(
-    caches.match(e.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      return caches.open(DATA_CACHE_NAME).then((cache) => {
-        return fetch(e.request).then((response) => {
-          return cache.put(e.request, response.clone()).then(() => {
-            return response;
-          });
-        });
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.match(e.request).then((response) => {
+        return response || fetch(e.request);
       });
     })
   );
